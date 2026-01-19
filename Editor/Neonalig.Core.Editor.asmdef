@@ -1,0 +1,19 @@
+{
+    "name": "Neonalig.Core.Editor",
+    "rootNamespace": "Neonalig.Core.Editor",
+    "references": [
+        "Neonalig.Core.Runtime",
+        "Unity.VisualScripting.Core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

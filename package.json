@@ -1,0 +1,15 @@
+﻿{
+  "name": "com.neonalig.core",
+  "version": "1.0.0",
+  "displayName": "Neonalig Core",
+  "description": "Core utilities including DebugMode, SingletonMB, SerializedType, and more.",
+  "unity": "2021.3",
+  "keywords": ["core", "utilities", "singleton", "debug"],
+  "author": {
+    "name": "Neonalig"
+  },
+  "dependencies": {
+    "com.neonalig.polyfills": "1.0.0",
+		"com.unity.visualscripting": "1.9.9"
+  }
+}
