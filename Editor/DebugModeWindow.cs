@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using Unity.VisualScripting;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Neonalig.Core.Editor
 {
@@ -22,11 +22,12 @@ namespace Neonalig.Core.Editor
         public static DebuggableType From(Type type, bool isOn)
         {
             string niceName = type.CSharpName();
+            if (string.IsNullOrEmpty(niceName)) niceName = type.Name;
             string assemblyName = type.Assembly.GetName().Name;
             var content = new GUIContent(niceName)
             {
                 tooltip = $"Toggle Debug Mode for {niceName}\n\nType: {type.AssemblyQualifiedName}",
-                image = AssetPreview.GetMiniTypeThumbnail(type)
+                image = AssetPreview.GetMiniTypeThumbnail(type) ?? EditorGUIUtility.IconContent("dll Script Icon").image
             };
             var nsContent = new GUIContent(assemblyName)
             {
@@ -43,13 +44,66 @@ namespace Neonalig.Core.Editor
             IsOn = isOn;
         }
 
+        public bool HasContextMenu
+        {
+            get
+            {
+                // Only if we can find the file the script is defined in
+                return typeof(MonoBehaviour).IsAssignableFrom(Type)
+                    || typeof(ScriptableObject).IsAssignableFrom(Type);
+            }
+        }
+
+        public GenericMenu CreateContextMenu()
+        {
+            var menu = new GenericMenu();
+            MethodInfo? fromTypeMethod = typeof(MonoScript).GetMethod("FromType", BindingFlags.Static | BindingFlags.NonPublic);
+            if (fromTypeMethod == null)
+            {
+                menu.AddDisabledItem(new GUIContent("Open Script (Method Not Found)"));
+                return menu;
+            }
+
+            var monoScript = fromTypeMethod.Invoke(null, new object[] { Type }) as MonoScript;
+            if (monoScript != null)
+            {
+                string assetPath = AssetDatabase.GetAssetPath(monoScript);
+                if (!string.IsNullOrEmpty(assetPath))
+                {
+                    menu.AddItem(new GUIContent("Open Script"), false, () =>
+                    {
+                        var asset = AssetDatabase.LoadAssetAtPath<Object>(assetPath);
+                        AssetDatabase.OpenAsset(asset);
+                    });
+                }
+                else
+                {
+                    menu.AddDisabledItem(new GUIContent("Open Script (Not Found)"));
+                }
+            }
+            else
+            {
+                menu.AddDisabledItem(new GUIContent("Open Script (Not a MonoScript)"));
+            }
+            return menu;
+        }
+
         public void CalculateWidths(float maxWidth)
         {
             if (Mathf.Approximately(maxWidth, _lastCalculatedMaxWidth)) return;
             _lastCalculatedMaxWidth = maxWidth;
 
-            ToggleWidth = EditorStyles.toggle.CalcSize(Name).x - 200f;
-            NamespaceWidth = Mathf.Min(EditorStyles.label.CalcSize(Namespace).x, maxWidth - ToggleWidth);
+            var toggleStyle = new GUIStyle(EditorStyles.toggle)
+            {
+                fixedHeight = EditorGUIUtility.singleLineHeight
+            };
+            ToggleWidth = toggleStyle.CalcSize(Name).x;
+
+            var labelStyle = new GUIStyle(EditorStyles.label)
+            {
+                fixedHeight = EditorGUIUtility.singleLineHeight
+            };
+            NamespaceWidth = Mathf.Min(labelStyle.CalcSize(Namespace).x, maxWidth - ToggleWidth);
         }
     }
 
@@ -61,7 +115,7 @@ namespace Neonalig.Core.Editor
         private bool _showOnlyEnabled = false;
         private bool _initialized = false;
 
-        // Colors for alternate rows
+        // Colours for alternate rows
         private Color _evenRowColor;
         private Color _oddRowColor;
         private GUIStyle _rowStyle;
@@ -201,27 +255,35 @@ namespace Neonalig.Core.Editor
             for (int i = 0; i < filteredTypes.Count; i++)
             {
                 DebuggableType item = filteredTypes[i];
-                Rect rowRect = new Rect(0, i * lineHeight, listArea.width - 16, lineHeight);
+                var rowRect = new Rect(0, i * lineHeight, listArea.width - 16, lineHeight);
 
-                // Alternate row colors
+                // Alternate row colours
                 GUI.backgroundColor = i % 2 == 0 ? _evenRowColor : _oddRowColor;
                 GUI.Box(rowRect, GUIContent.none, _rowStyle);
                 GUI.backgroundColor = defaultBgColor;
 
+                // Handle right-click context menu
+                if (item.HasContextMenu && Event.current.type == EventType.ContextClick && rowRect.Contains(Event.current.mousePosition))
+                {
+                    GenericMenu menu = item.CreateContextMenu();
+                    menu.ShowAsContext();
+                    Event.current.Use();
+                }
+
                 // Create toggle with type name and icon
-                Rect toggleRect = new Rect(rowRect.x + 5, rowRect.y + (rowRect.height - EditorGUIUtility.singleLineHeight) / 2,
+                var toggleRect = new Rect(rowRect.x + 5, rowRect.y + (rowRect.height - EditorGUIUtility.singleLineHeight) / 2,
                     rowRect.width - 10, EditorGUIUtility.singleLineHeight);
 
-                const float spacing = 5f;
-                item.CalculateWidths(toggleRect.width - spacing);
+                const float SPACING = 5f;
+                item.CalculateWidths(toggleRect.width - SPACING);
                 float toggleWidth = item.ToggleWidth;
-                Rect actualToggleRect = new Rect(toggleRect.x, toggleRect.y, toggleWidth, toggleRect.height);
-                var oldContentColor = GUI.contentColor;
+                var actualToggleRect = new Rect(toggleRect.x, toggleRect.y, toggleWidth, toggleRect.height);
+                Color oldContentColor = GUI.contentColor;
                 GUI.contentColor = item.IsOn ? oldContentColor : Color.grey;
                 bool newIsOn = EditorGUI.ToggleLeft(actualToggleRect, item.Name, item.IsOn);
-                float availableWidth = toggleRect.width - toggleWidth - spacing;
+                float availableWidth = toggleRect.width - toggleWidth - SPACING;
                 float nsWidth = Mathf.Min(item.NamespaceWidth, availableWidth);
-                Rect namespaceRect = new Rect(toggleRect.xMax - nsWidth, toggleRect.y, nsWidth, toggleRect.height);
+                var namespaceRect = new Rect(toggleRect.xMax - nsWidth, toggleRect.y, nsWidth, toggleRect.height);
                 GUI.contentColor = Color.grey;
                 EditorGUI.LabelField(namespaceRect, item.Namespace);
                 GUI.contentColor = oldContentColor;

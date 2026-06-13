@@ -2,7 +2,9 @@ using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
 
 namespace Neonalig.Core
@@ -38,24 +40,28 @@ namespace Neonalig.Core
         }
 
         /// <summary>
-        /// Override this method to perform any initialization logic when the singleton is created.<br/>
+        /// Override this method to perform any initialisation logic when the singleton is created.<br/>
         /// This method is called in the Awake method of the singleton, only if the instance is not already assigned (as otherwise this object is being destroyed).
         /// </summary>
         protected virtual void OnAwake() { }
 
         /// <summary>
-        /// Awake method that initializes the singleton instance.<br/>
-        /// The base method must always be called in derived classes. Use <see cref="OnAwake"/> for custom initialization logic.
+        /// Awake method that initialises the singleton instance.<br/>
+        /// The base method must always be called in derived classes. Use <see cref="OnAwake"/> for custom initialisation logic.
         /// </summary>
         protected void Awake()
         {
             if (_instance != null)
             {
                 // Multiple instances detected - destroy this instance
+    #if UNITY_6000_4_OR_NEWER
+                T[] instances = FindObjectsByType<T>();
+    #else
+                T[] instances = FindObjectsByType<T>(FindObjectsSortMode.InstanceID);
+    #endif
                 Debug.LogWarning(
-                    $"[{typeof(T).Name}] Other components are present on this singleton GameObject. " +
-                    $"Singleton {typeof(T).Name} expects to be the only component on its GameObject. " +
-                    "Destroying this component to avoid conflicts."
+                    $"[{typeof(T).Name}] Multiple instances of singleton detected. Destroying duplicate on GameObject '{gameObject.name}'.\nAll instances in scene:\n{string.Join("\n", instances.Select(GetDuplicateSingletonDescriptor))}",
+                    gameObject
                 );
 
                 Component[] components = GetComponents<Component>();
@@ -98,6 +104,30 @@ namespace Neonalig.Core
                 }
                 _instanceAssignedEventBuffer = null;
             }
+        }
+
+        private static string GetDuplicateSingletonDescriptor(T instance)
+        {
+            GameObject gameObject = instance.gameObject;
+            Scene scene = gameObject.scene;
+#if UNITY_6000_4_OR_NEWER
+            string entityId = instance.GetEntityId().ToString();
+#else
+            string entityId = instance.GetInstanceID().ToString();
+#endif
+            return $"- [Scene {scene.buildIndex}: {scene.name}] {GetFullHierarchyPath(gameObject)} (ID: {entityId})";
+        }
+
+        private static string GetFullHierarchyPath(GameObject obj)
+        {
+            StringBuilder sb = new StringBuilder(obj.name);
+            Transform current = obj.transform.parent;
+            while (current != null)
+            {
+                sb.Insert(0, current.name + "/");
+                current = current.parent;
+            }
+            return sb.ToString();
         }
 
 #if UNITY_EDITOR

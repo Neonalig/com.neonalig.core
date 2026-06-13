@@ -1,9 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -177,12 +175,12 @@ namespace Neonalig.Core.Editor
         /// <inheritdoc />
         public override void OnPreviewGUI(Rect r, GUIStyle background)
         {
-            const float padding = 10f;
-            const float lineHeight = 20f;
-            const float buttonSpacing = 2f; // Space between buttons
-            float maxWidth = r.width - (2 * padding);
+            const float PADDING = 10f;
+            const float LINE_HEIGHT = 20f;
+            const float BUTTON_SPACING = 2f; // Space between buttons
+            float maxWidth = r.width - (2 * PADDING);
 
-            // Initialize on first call
+            // Initialise on first call
             if (!_initialized)
             {
                 InitializeComponentData();
@@ -192,11 +190,11 @@ namespace Neonalig.Core.Editor
             Vector2 currentRectSize = new Vector2(r.width, r.height);
             if (!_layoutCacheValid || _lastRectSize != currentRectSize)
             {
-                CalculateLayout(maxWidth, lineHeight, buttonSpacing);
+                CalculateLayout(maxWidth, LINE_HEIGHT, BUTTON_SPACING);
                 _lastRectSize = currentRectSize;
             }
 
-            // Calculate starting Y position to center vertically
+            // Calculate starting Y position to centre vertically
             float startY = r.y + ((r.height - _cachedTotalHeight) / 2);
             float currentY = startY;
 
@@ -204,13 +202,13 @@ namespace Neonalig.Core.Editor
             foreach (List<(GUIContent name, Type type, bool isOn, float width)> line in _cachedLines)
             {
                 // Calculate total width of this line
-                float lineWidth = line.Sum(b => b.width) + (buttonSpacing * (line.Count - 1));
+                float lineWidth = line.Sum(b => b.width) + (BUTTON_SPACING * (line.Count - 1));
                 float startX = r.x + ((r.width - lineWidth) / 2);
                 float currentX = startX;
 
                 foreach ((GUIContent name, Type type, bool isOn, float width) in line)
                 {
-                    Rect buttonRect = new Rect(currentX, currentY, width, lineHeight);
+                    Rect buttonRect = new Rect(currentX, currentY, width, LINE_HEIGHT);
                     var newIsOn = GUI.Toggle(buttonRect, isOn, name, EditorStyles.toolbarButton);
 
                     if (newIsOn != isOn)
@@ -232,10 +230,10 @@ namespace Neonalig.Core.Editor
                         }
                     }
 
-                    currentX += width + buttonSpacing;
+                    currentX += width + BUTTON_SPACING;
                 }
 
-                currentY += lineHeight + buttonSpacing;
+                currentY += LINE_HEIGHT + BUTTON_SPACING;
             }
         }
     }
